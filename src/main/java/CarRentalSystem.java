@@ -35,9 +35,14 @@ public class CarRentalSystem {
         Connection con = DriverManager.getConnection(url, usernamestring, passwordstring);
         Statement statement = con.createStatement();
 
+        app();
 
         // Finally but importantly close the statement and connection
         statement.close();
         con.close();
+    }
+
+    private static void app(){
+
     }
 }
