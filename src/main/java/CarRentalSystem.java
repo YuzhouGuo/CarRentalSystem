@@ -1,9 +1,5 @@
 
 import java.sql.*;
-import java.sql.DriverManager;
-import java.sql.Connection;
-import java.sql.SQLException;
-
 import java.util.Scanner;
 
 public class CarRentalSystem {
@@ -34,6 +30,8 @@ public class CarRentalSystem {
         String passwordstring = "wearegroup4";
         Connection con = DriverManager.getConnection(url, usernamestring, passwordstring);
         Statement statement = con.createStatement();
+        
+       // ResultSet result = statement.executeQuery();
 
         app();
 
@@ -42,7 +40,7 @@ public class CarRentalSystem {
         con.close();
     }
 
-    private static void app(){
+    private static void app() {
 
     }
 }
