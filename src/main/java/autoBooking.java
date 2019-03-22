@@ -20,16 +20,19 @@ import java.util.Date;
  * AND customer.email = customerFavorites.email
  * 
  * SELECT license_plate, arrived_to_lat, arrived_to_lon 
- * FROM (SELECT license_plate, arrived_to_lat, arrived_to_lon 
+ * FROM booking WHERE license_plate IN ((SELECT license_plate
  * 			FROM booking 
- * 			WHERE arrived_to_lat != NULL 
- * 			AND arrived_to_lon != NULL) AS available
- * WHERE available.license_plate = ?
+ * 			WHERE arrived_to_lat IS NOT NULL
+ * 			AND arrived_to_lon IS NOT NULL) EXCEPT ((SELECT license_plate
+ * 			FROM booking
+ * 		    WHERE arrived_to_lat IS NULL
+ *  			AND arrived_to_lon IS NULL)）
+ * AND license_plate = ?
  * 
  * if output is 0 row, print a message telling "no available cars currently"
  * else add a new booking information
  * 
- * INSERT INTO booking VALUES(?booking_number, ?transaction_num, ?license_plate, ?email, ?left_from_lat, ?left_from_lon, NULL, NULL);
+ * INSERT INTO booking VALUES(DEFAULT, ?transaction_num, ?license_plate, ?email, ?left_from_lat, ?left_from_lon);
  */
 
 public class autoBooking extends Operation{
@@ -58,14 +61,6 @@ public class autoBooking extends Operation{
 	        
 	        String prepared1 = "SELECT distinct email FROM customer";
 	        
-	        String preparedS = "SELECT " + 
-	        		"customer.membership, customerFavorites.license_plate FROM" + 
-	        		 "customer, customerFavorites" + 
-	        		 " WHERE customer.email = ?" + 
-	        		 " AND customer.email = customerFavorites.email"
-	        		 + "LIMIT 1";
-	        //System.out.println(preparedS);
-	        
 	        PreparedStatement preparedCid = null;
 	        
 			try {
@@ -88,7 +83,6 @@ public class autoBooking extends Operation{
 	        // Request email from the customer
 			System.out.println("Please enter your email: ");
 			String email = scc.nextLine();
-			//System.out.println(email);
 			
 			for(int i=email.length(); i<254; i++) {
 	        	email = email + " ";
@@ -133,29 +127,30 @@ public class autoBooking extends Operation{
 			membershiplist[4] = "silverForOneMonth";
 			membershiplist[5] = "premiumForOneMonth";
 			
-			for(String temp: membershiplist) {
-				for(int i=temp.length(); i<40; i++) {
-					temp+=" ";
-				}
-			}
-			
 			double discount;
-			if(membership.equals(membershiplist[0])) {
+			if(membership.contains(membershiplist[0])) {
 				discount = 0.95;
-			} else if (membership.equals(membershiplist[1])) {
+			} else if (membership.contains(membershiplist[1])) {
 				discount = 0.80;
-			} else if (membership.equals(membershiplist[2])) {
+			} else if (membership.contains(membershiplist[2])) {
 				discount = 0.85;
-			} else if (membership.equals(membershiplist[3])) {
+			} else if (membership.contains(membershiplist[3])) {
 				discount = 0.80;
-			} else if (membership.equals(membershiplist[4])) {
+			} else if (membership.contains(membershiplist[4])) {
 				discount = 0.85;
-			} else if (membership.equals(membershiplist[5])) {
+			} else if (membership.contains(membershiplist[5])) {
 				discount = 0.80;
 			} else {
 				discount = 1;
 			}
-			
+
+			String preparedS = "SELECT " +
+				"customer.membership_type, customerFavorites.license_plate FROM " +
+				"customer, customerFavorites" +
+				" WHERE customer.email = ?" +
+				" AND customer.email = customerFavorites.email "
+				+ "LIMIT 1";
+
 			try {
 				preparedCid = con.prepareStatement(preparedS);
 			} catch (SQLException e) {
@@ -175,11 +170,15 @@ public class autoBooking extends Operation{
 	        }	       	  
 	        
 	        String prepared2 = "SELECT license_plate, arrived_to_lat, arrived_to_lon" + 
-	        				" FROM (SELECT license_plate, arrived_to_lat, arrived_to_lon" + 
+	        				" FROM booking WHERE license_plate IN ((SELECT license_plate" +
 	        				" 			FROM booking" + 
-	        				" 			WHERE arrived_to_lat != NULL" + 
-	        				" 			AND arrived_to_lon != NULL) AS available" + 
-	        				" WHERE available.license_plate = ?";
+	        				" 			WHERE arrived_to_lat IS NOT NULL" +
+	        				" 			AND arrived_to_lon IS NOT NULL) " +
+							"    EXCEPT (SELECT license_plate" +
+							"			FROM  booking" +
+							"			WHERE arrived_to_lat IS NULL" +
+							"           AND arrived_to_lon IS NULL))" +
+	        				" AND license_plate = ?";
 	        
 	        if (count != 1) {
 	        	System.out.println("Database error!");
@@ -206,10 +205,10 @@ public class autoBooking extends Operation{
 		    if (result.next()) {
 		        lat = result.getDouble(rsmd.getColumnName(2));
 		        lon = result.getDouble(rsmd.getColumnName(3));
-		        String prepared3 = "SELECT model.price_for_rent FROM"
-		        		+ "car, model"
-		        		+ "WHERE car.car_make = model.car_make"
-		        		+ "AND car.model_name = model.model_name"
+		        String prepared3 = "SELECT model.price_for_rent FROM "
+		        		+ "car, model "
+		        		+ "WHERE car.car_make = model.car_make "
+		        		+ "AND car.model_name = model.model_name "
 		        		+ "AND car.license_plate = ?";
 		        
 		        try {
@@ -240,51 +239,69 @@ public class autoBooking extends Operation{
         			"\n" + "Position: longitude" + ":  " + lon +
         			"\n" + "Your fee" + ":  " + price*discount);
 		        
-		        Random rand;
-		        int randomtrans = rand.nextInt((100 - 50)+1) + 50;
+		        Random rand = new Random();
 		        int accountNum = rand.nextInt((9999-1000)+1)+1000;
-		        String prepared5 = "INSERT INTO payment VALUES (?, ?, ?, ?)";
+		        String prepared5 = "INSERT INTO payment VALUES (DEFAULT, ?, ?, ?)";
 		        try {
 					preparedCid = con.prepareStatement(prepared5);
 				} catch (SQLException e) {
 					e.printStackTrace();				
 				}
-		        preparedCid.setInt(1, randomtrans);
-		        preparedCid.setString(2, email);
-		        preparedCid.setInt(3, accountNum);
-		        preparedCid.setDate(4, new java.sql.Date(Calendar.getInstance().getTimeInMillis()));
+		        preparedCid.setString(1, email);
+		        preparedCid.setInt(2, accountNum);
+		        preparedCid.setDate(3, new java.sql.Date(Calendar.getInstance().getTimeInMillis()));
 		        
-		        result = preparedCid.executeQuery();
-		       	rsmd = result.getMetaData();
-		        
-		        String prepared4 = "INSERT INTO booking VALUES(?, ?, ?, ?, ?, ?, NULL, NULL)";
+		        preparedCid.executeUpdate();
+
+				String prepared6 = "SELECT currval(pg_get_serial_sequence('payment','transaction_num'))";
+
+				preparedCid = null;
+
+				try {
+					preparedCid = con.prepareStatement(prepared6);
+				} catch (SQLException e) {
+					e.printStackTrace();
+				}
+
+				result = preparedCid.executeQuery();
+				rsmd = result.getMetaData();
+
+				int latest_seq_num = 0;
+				if(result.next()) {
+					latest_seq_num = result.getInt(rsmd.getColumnName(1));
+				}
+
+		        String prepared4 = "INSERT INTO booking VALUES(DEFAULT, ?, ?, ?, ?, ?)";
 		       
 		        try {
 					preparedCid = con.prepareStatement(prepared4);
 				} catch (SQLException e) {
 					e.printStackTrace();				
 				}
-		       	
-		        int randomNum = rand.nextInt((20000000 - 10000050) + 1) + 10000050;
-		        preparedCid.setInt(1, randomNum);
-		        preparedCid.setInt(2, randomtrans);
-		        preparedCid.setString(3, license);
-		        preparedCid.setString(4, email);
-		        preparedCid.setDouble(5, lat);
-		        preparedCid.setDouble(6, lon);
+
+		        preparedCid.setInt(1, latest_seq_num);
+		        preparedCid.setString(2, license);
+		        preparedCid.setString(3, email);
+		        preparedCid.setDouble(4, lat);
+		        preparedCid.setDouble(5, lon);
 		        			        
-		       	result = preparedCid.executeQuery();
-		       	rsmd = result.getMetaData();
+		       	preparedCid.executeUpdate();
 		    } else {
-		    	String prepared3 = "SELECT booking.license_plate, booking.arrived_to_lat, booking.arrived_to_lon, table1.price_for_rent" + 
+		    	String prepared3 = "SELECT booking.license_plate, booking.arrived_to_lat, booking.arrived_to_lon, table1.price_for_rent " +
 		    			"FROM booking,"
-		    			+ "(SELECT car.license_plate, model.price_for_rent FROM" 
-		    				+ "car, model"
-		    				+ "WHERE car.car_make = model.car_make"
+		    			+ "(SELECT car.license_plate, model.price_for_rent FROM "
+		    				+ "car, model "
+		    				+ "WHERE car.car_make = model.car_make "
 		    				+ "AND car.model_name = model.model_name"
-		    			+ ") AS table1" 
-		    			+ "WHERE booking.arrived_to_lat != NULL"
-		    			+ "AND booking.arrived_to_lon != NULL" 
+		    			+ ") AS table1 "
+		    			+ "WHERE booking.license_plate IN ((SELECT license_plate" +
+						" 			FROM booking" +
+						" 			WHERE arrived_to_lat IS NOT NULL" +
+						" 			AND arrived_to_lon IS NOT NULL) " +
+						"    EXCEPT (SELECT license_plate" +
+						"			FROM  booking" +
+						"			WHERE arrived_to_lat IS NULL" +
+						"           AND arrived_to_lon IS NULL))"
 		    			+ "AND booking.license_plate = table1.license_plate "
 		    			+ "ORDER BY table1.price_for_rent";
 		    	
@@ -310,43 +327,55 @@ public class autoBooking extends Operation{
 	        			"\n" + rsmd.getColumnName(2) + ":            " + lat + 
 	        			"\n" + rsmd.getColumnName(3) + ":  " + lon +
 	        			"\n" + rsmd.getColumnName(4) + ":  " + price*discount);
-			        
-			        Random rand;
-			        int randomtrans = rand.nextInt((100 - 50)+1) + 50;
-			        int accountNum = rand.nextInt((9999-1000)+1)+1000;
-			        String prepared5 = "INSERT INTO payment VALUES (?, ?, ?, ?)";
-			        try {
+
+					Random rand = new Random();
+					int accountNum = rand.nextInt((9999-1000)+1)+1000;
+					String prepared5 = "INSERT INTO payment VALUES (DEFAULT, ?, ?, ?)";
+					try {
 						preparedCid = con.prepareStatement(prepared5);
 					} catch (SQLException e) {
-						e.printStackTrace();				
+						e.printStackTrace();
 					}
-			        preparedCid.setInt(1, randomtrans);
-			        preparedCid.setString(2, email);
-			        preparedCid.setInt(3, accountNum);
-			        preparedCid.setDate(4, new java.sql.Date(Calendar.getInstance().getTimeInMillis()));
-			        
-			        result = preparedCid.executeQuery();
-			       	rsmd = result.getMetaData();
-			        
-			        String prepared4 = "INSERT INTO booking VALUES(?, ?, ?, ?, ?, ?, NULL, NULL)";
-			       
-			        try {
-						preparedCid = con.prepareStatement(prepared3);
+					preparedCid.setString(1, email);
+					preparedCid.setInt(2, accountNum);
+					preparedCid.setDate(3, new java.sql.Date(Calendar.getInstance().getTimeInMillis()));
+
+					preparedCid.executeUpdate();
+
+					String prepared6 = "SELECT currval(pg_get_serial_sequence('payment','transaction_num'))";
+
+					preparedCid = null;
+
+					try {
+						preparedCid = con.prepareStatement(prepared6);
 					} catch (SQLException e) {
-						e.printStackTrace();				
+						e.printStackTrace();
 					}
-			       	
-			        int randomNum = rand.nextInt((20000000 - 10000050) + 1) + 10000050;
-			        preparedCid.setInt(1, randomNum);
-			        preparedCid.setInt(2, randomtrans);
-			        preparedCid.setString(3, license);
-			        preparedCid.setString(4, email);
-			        preparedCid.setDouble(5, lat);
-			        preparedCid.setDouble(6, lon);
-			        			        
-			       	result = preparedCid.executeQuery();
-			       	rsmd = result.getMetaData();
-			       	
+
+					result = preparedCid.executeQuery();
+					rsmd = result.getMetaData();
+
+					int latest_seq_num = 0;
+					if(result.next()) {
+						latest_seq_num = result.getInt(rsmd.getColumnName(1));
+					}
+
+					String prepared4 = "INSERT INTO booking VALUES(DEFAULT, ?, ?, ?, ?, ?)";
+
+					try {
+						preparedCid = con.prepareStatement(prepared4);
+					} catch (SQLException e) {
+						e.printStackTrace();
+					}
+
+					preparedCid.setInt(1, latest_seq_num);
+					preparedCid.setString(2, license);
+					preparedCid.setString(3, email);
+					preparedCid.setDouble(4, lat);
+					preparedCid.setDouble(5, lon);
+
+					preparedCid.executeUpdate();
+
 			    } else {
 			    	System.out.println("We have searched all through our database, but there is no car available, please try next time.");
 			    	result.close();
