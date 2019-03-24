@@ -62,7 +62,7 @@ public class CustomerAmount extends Operation {
 		 			   "	WHERE paid_by = ?" + 
 		 			   "	AND date >= (NOW() - interval '1 year')" + 
 		 			   ")";
-	        System.out.println(preparedS);
+	        //System.out.println(preparedS);
 	        
 	        PreparedStatement preparedCid = null;
 			try {
