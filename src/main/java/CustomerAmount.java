@@ -77,7 +77,7 @@ public class CustomerAmount extends Operation {
 	        // Request email from the customer
 			System.out.println("Please enter your email: ");
 			String email = scc.nextLine();
-			System.out.println(email);
+			System.out.println("You're requesting the amount spent by customer: " + email);
 			
 			preparedCid.setString(1, email);
 		        
