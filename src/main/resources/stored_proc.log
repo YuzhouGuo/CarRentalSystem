@@ -1,0 +1,122 @@
+\d
+                      List of relations
+  Schema  |            Name             |   Type   |  Owner   
+----------+-----------------------------+----------+----------
+ cs421g04 | available_cars              | view     | cs421g04
+ cs421g04 | booking                     | table    | cs421g04
+ cs421g04 | booking_booking_number_seq  | sequence | cs421g04
+ cs421g04 | car                         | table    | cs421g04
+ cs421g04 | carcurrentlyat              | table    | cs421g04
+ cs421g04 | companyusedmodel            | table    | cs421g04
+ cs421g04 | customer                    | table    | cs421g04
+ cs421g04 | customerfavorites           | table    | cs421g04
+ cs421g04 | grouped_payments            | view     | cs421g04
+ cs421g04 | memberpayment               | table    | cs421g04
+ cs421g04 | membership                  | table    | cs421g04
+ cs421g04 | model                       | table    | cs421g04
+ cs421g04 | parkingspot                 | table    | cs421g04
+ cs421g04 | payment                     | table    | cs421g04
+ cs421g04 | payment_transaction_num_seq | sequence | cs421g04
+ cs421g04 | personalmodel               | table    | cs421g04
+(16 rows)
+
+SELECT * FROM car WHERE mileage > 200000;
+ license_plate |                 car_make                 |                model_name                | mileage |  gas  
+---------------+------------------------------------------+------------------------------------------+---------+-------
+ 3J2 DF9       | Honda                                    | CR-V                                     |  234453 | 213.0
+ 9G3 GF0       | Mazda                                    | MX-5                                     |  248843 | 453.2
+(2 rows)
+
+SELECT * FROM carcurrentlyat WHERE license_plate IN (
+    SELECT license_plate FROM car WHERE mileage > 200000);
+ license_plate | latitude  | longitude  
+---------------+-----------+------------
+ 3J2 DF9       | 45.495921 | -73.653197
+ 9G3 GF0       | 45.446778 | -73.613776
+(2 rows)
+
+DROP FUNCTION retireCars(INT);
+DROP FUNCTION
+CREATE OR REPLACE FUNCTION retireCars(maxMileage INT)
+RETURNS TABLE (license_plate CHAR(8)) AS $$
+
+DECLARE
+    v_car RECORD;
+
+    cur_car CURSOR FOR SELECT mileage, car.license_plate FROM car;
+
+BEGIN
+    CREATE TABLE IF NOT EXISTS retiredCar (
+        license_plate CHAR(8) NOT NULL,
+	    car_make CHAR(40) NOT NULL,
+	    model_name CHAR(40) NOT NULL,
+	    mileage INTEGER DEFAULT 0,
+	    gas NUMERIC(4, 1) DEFAULT 0,
+	    PRIMARY KEY (license_plate),
+	    FOREIGN KEY (car_make, model_name) REFERENCES model
+    );
+
+    OPEN cur_car;
+
+    LOOP
+
+        FETCH cur_car INTO v_car;
+        EXIT WHEN NOT FOUND;
+        IF (v_car.mileage > maxMileage) THEN 
+            INSERT INTO retiredCar (
+                SELECT * FROM car WHERE car.license_plate = v_car.license_plate
+            );
+            DELETE FROM carcurrentlyat WHERE carcurrentlyat.license_plate = v_car.license_plate;
+            UPDATE booking SET license_plate = NULL WHERE booking.license_plate = v_car.license_plate;
+            DELETE FROM car WHERE CURRENT OF cur_car;
+        END IF;
+    END LOOP;
+    CLOSE cur_car;
+
+    RETURN QUERY SELECT retiredCar.license_plate FROM retiredCar;
+END; $$
+LANGUAGE 'plpgsql';
+CREATE FUNCTION
+-- Retires cars who have more than 200,000 mileage
+SELECT retireCars(200000);
+ retirecars 
+------------
+ 3J2 DF9 
+ 9G3 GF0 
+(2 rows)
+
+\d
+                      List of relations
+  Schema  |            Name             |   Type   |  Owner   
+----------+-----------------------------+----------+----------
+ cs421g04 | available_cars              | view     | cs421g04
+ cs421g04 | booking                     | table    | cs421g04
+ cs421g04 | booking_booking_number_seq  | sequence | cs421g04
+ cs421g04 | car                         | table    | cs421g04
+ cs421g04 | carcurrentlyat              | table    | cs421g04
+ cs421g04 | companyusedmodel            | table    | cs421g04
+ cs421g04 | customer                    | table    | cs421g04
+ cs421g04 | customerfavorites           | table    | cs421g04
+ cs421g04 | grouped_payments            | view     | cs421g04
+ cs421g04 | memberpayment               | table    | cs421g04
+ cs421g04 | membership                  | table    | cs421g04
+ cs421g04 | model                       | table    | cs421g04
+ cs421g04 | parkingspot                 | table    | cs421g04
+ cs421g04 | payment                     | table    | cs421g04
+ cs421g04 | payment_transaction_num_seq | sequence | cs421g04
+ cs421g04 | personalmodel               | table    | cs421g04
+ cs421g04 | retiredcar                  | table    | cs421g04
+(17 rows)
+
+SELECT * FROM retiredcar;
+ license_plate |                 car_make                 |                model_name                | mileage |  gas  
+---------------+------------------------------------------+------------------------------------------+---------+-------
+ 3J2 DF9       | Honda                                    | CR-V                                     |  234453 | 213.0
+ 9G3 GF0       | Mazda                                    | MX-5                                     |  248843 | 453.2
+(2 rows)
+
+SELECT * FROM car WHERE mileage > 200000;
+ license_plate | car_make | model_name | mileage | gas 
+---------------+----------+------------+---------+-----
+(0 rows)
+
