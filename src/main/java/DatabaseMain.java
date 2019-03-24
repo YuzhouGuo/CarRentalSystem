@@ -27,7 +27,7 @@ public class DatabaseMain {
 	// the parking spot where they left it, and current location of that car (Done)
 	
 	static void setupOps() {
-		ops = new Operation[5];
+		ops = new Operation[6];
 		String CAshort = "Money spent last year";
 		String CAlong = "This is an operation to print amount spent by a customer in the last year, by email";
 		ops[0] = new CustomerAmount(CAshort, CAlong); //over
