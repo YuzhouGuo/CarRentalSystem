@@ -5,11 +5,11 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
 
 // An operation to print amount spent by a customer in the last year, by email
 
 /**
-
 SELECT 
 	SUM(mship.price_per_month) AS spent
 FROM 
@@ -24,7 +24,6 @@ FROM
 		AND date >= (NOW() - interval '1 year')
 	)
 ;
-
  */
 public class CustomerAmount extends Operation {
 	
@@ -62,14 +61,24 @@ public class CustomerAmount extends Operation {
 		 			   "	WHERE paid_by = ?" + 
 		 			   "	AND date >= (NOW() - interval '1 year')" + 
 		 			   ")";
-	        //System.out.println(preparedS);
+	        
+	        String prepared1 = "SELECT distinct email FROM customer";
 	        
 	        PreparedStatement preparedCid = null;
+	        
 			try {
-				preparedCid = con.prepareStatement(preparedS);
+				preparedCid = con.prepareStatement(prepared1);
 			} catch (SQLException e) {
 				e.printStackTrace();				
 			}
+			
+			ArrayList<String> emaillist = new ArrayList<String>();
+			ResultSet result = preparedCid.executeQuery();
+		    ResultSetMetaData rsmd = result.getMetaData();
+	        
+	        while(result.next()) {
+	        	emaillist.add(result.getString(rsmd.getColumnName(1)));
+	        }
 			
 			// Introduce what does this Operation do to the user (first print)
 	        System.out.println(this.description);
@@ -77,12 +86,39 @@ public class CustomerAmount extends Operation {
 	        // Request email from the customer
 			System.out.println("Please enter your email: ");
 			String email = scc.nextLine();
+			
+			for(int i=email.length(); i<254; i++) {
+	        	email = email + " ";
+			}
+			
+			boolean exists = false;
+			for(String temp: emaillist) {
+				if(temp.equals(email)) exists = true;
+			}
+			
+			while(!exists) {
+				System.out.println("Sorry, the user you entered is not in our member list, please try again: ");
+				email = scc.nextLine();
+				for(int i=email.length(); i<254; i++) {
+		        	email = email + " ";
+				}
+				for(String temp: emaillist) {
+					if(temp.equals(email)) exists = true;
+				}
+			}
+			
 			System.out.println("You're requesting the amount spent by customer: " + email);
+			
+			try {
+				preparedCid = con.prepareStatement(preparedS);
+			} catch (SQLException e) {
+				e.printStackTrace();				
+			}
 			
 			preparedCid.setString(1, email);
 		        
-	        ResultSet result = preparedCid.executeQuery();
-	        ResultSetMetaData rsmd = result.getMetaData();
+	        result = preparedCid.executeQuery();
+	        rsmd = result.getMetaData();
 	        
 	        while(result.next()) {
 	        	System.out.println("\nThe amount of money you spent from last year is " + result.getDouble(rsmd.getColumnName(1)));
