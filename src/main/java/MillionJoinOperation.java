@@ -5,6 +5,7 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
 
 /**
 SELECT
@@ -15,7 +16,6 @@ SELECT
 	arrived.name as arrived_name,
 	currently
 FROM
-
 	(SELECT 
 		b.license_plate,
 		b.email,
@@ -91,8 +91,8 @@ public class MillionJoinOperation extends Operation {
 	        		"	JOIN \n" + 
 	        		"		booking b\n" + 
 	        		"		ON c.license_plate = b.license_plate\n" + 
-	        		"		AND car_make = 'Volvo'\n" + 
-	        		"		AND model_name = 'C30'\n" + 
+	        		"		AND car_make = ?\n" + 
+	        		"		AND model_name = ?\n" + 
 	        		"	ORDER BY booking_number DESC\n" + 
 	        		"	LIMIT 5) AS b_info\n" + 
 	        		"JOIN\n" + 
@@ -110,20 +110,108 @@ public class MillionJoinOperation extends Operation {
 	        		"	ON cat.latitude = currently.latitude\n" + 
 	        		"	AND cat.longitude = currently.longitude";
 	        
+	        String prepared1 = "SELECT distinct car_make FROM car";
+	        String prepared2 = "SELECT distinct model_name FROM car";
+	        
 	        PreparedStatement preparedCid = null;
+	        
+	        // Add in all the car_make and model_name into two associated arraylists
+			try {
+				preparedCid = con.prepareStatement(prepared1);
+			} catch (SQLException e) {
+				e.printStackTrace();				
+			}
+			
+			ArrayList<String> modellist = new ArrayList<String>();
+			ArrayList<String> carlist = new ArrayList<String>();
+			ResultSet result = preparedCid.executeQuery();
+		    ResultSetMetaData rsmd = result.getMetaData();
+	        
+	        while(result.next()) {
+	        	carlist.add(result.getString(rsmd.getColumnName(1)));
+	        }
+	        
+	        try {
+				preparedCid = con.prepareStatement(prepared2);
+			} catch (SQLException e) {
+				e.printStackTrace();				
+			}
+	        
+	        result = preparedCid.executeQuery();
+		    rsmd = result.getMetaData();
+	        
+	        while(result.next()) {
+	        	modellist.add(result.getString(rsmd.getColumnName(1)));
+	        }
+			
+			// Introduce what does this Operation do to the user (first print)
+	        System.out.println(this.description);
+	        
+	        System.out.println("Please enter the car name: ");
+	        String car = scc.nextLine();
+			
+			for(int i=car.length(); i<40; i++) {
+				car = car + " ";
+			}
+			
+			boolean exists = false;
+			for(String temp: carlist) {
+				if(temp.equals(car)) exists = true;
+			}
+			
+			while(!exists) {
+				System.out.println("Sorry, the car you entered is not in our car list, please try again: ");
+				car = scc.nextLine();
+				for(int i=car.length(); i<40; i++) {
+					car = car + " ";
+				}
+				for(String temp: carlist) {
+					if(temp.equals(car)) exists = true;
+				}
+			}
+			
+			System.out.println("You're requesting information of the car: " + car);
+	        
+	        System.out.println("Please enter the model name: ");
+	        String model = scc.nextLine();
+			
+			for(int i=model.length(); i<40; i++) {
+				model = model + " ";
+			}
+			
+			//using the same boolean variable
+			exists = false;
+			for(String temp: modellist) {
+				if(temp.equals(model)) exists = true;
+			}
+			
+			while(!exists) {
+				System.out.println("Sorry, the model you entered is not in our car list, please try again: ");
+				model = scc.nextLine();
+				for(int i=model.length(); i<40; i++) {
+					model = model + " ";
+				}
+				for(String temp: modellist) {
+					if(temp.equals(model)) exists = true;
+				}
+			}
+			
+			System.out.println("You're requesting information of the model: " + model);
+			
 			try {
 				preparedCid = con.prepareStatement(preparedS);
 			} catch (SQLException e) {
 				e.printStackTrace();				
 			}
 			
-			// Introduce what does this Operation do to the user (first print)
-	        System.out.println(this.description);
+			// Set these two variables inside the query
+			preparedCid.setString(1, car);
+			preparedCid.setString(2, model);
 			
 			//System.out.println(preparedCid);
 		        
-	        ResultSet result = preparedCid.executeQuery();
-	        ResultSetMetaData rsmd = result.getMetaData();
+	        result = preparedCid.executeQuery();
+	        rsmd = result.getMetaData();
 	        
 	        while(result.next()) {
 	        	System.out.println("\n" + rsmd.getColumnName(1) + ":   " + result.getString(rsmd.getColumnName(1)) +
